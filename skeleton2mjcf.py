@@ -16,11 +16,24 @@ import numpy as np
 import numpy.typing as npt
 
 from dm_control import mjcf
+from dm_control.mjcf import skin
 from dm_control.mjcf import Element as mjElement
+from dm_control.mjcf.attribute import SkinAsset as mjSkinAsset
+from dm_control.mjcf.skin import Skin as mjSkin, Bone as mjBone
 
 import bpy
-from bpy.types import Object as bObject, Armature as bArmature, Bone as bBone
-from mathutils import Vector
+import bmesh
+from bpy.types import Object as bObject, Armature as bArmature, Bone as bBone, Mesh as bMesh
+from mathutils import Vector, Quaternion
+
+# All our assets have unique names so we do not need the hash in the filename
+class UnhashedAsset(mjcf.Asset):
+    def __init__(self, contents, name, extension):
+        super().__init__(contents, extension)
+        self.name = name
+
+    def get_vfs_filename(self):
+        return self.name + self.extension
 
 @dataclasses.dataclass
 class Options:
@@ -34,6 +47,10 @@ class Options:
     If no object is selected in Blender, then all objects will be converted."""
     use_pose_position: bool = False
     """Use the "pose" position of the armature, instead of the "rest" one."""
+    orient_bodies: bool = False
+    """Orient the bodies according to the direction of the bones."""
+    no_hierarchy: bool = False
+    """For debug purposes"""
     overwrite: bool = False
     """Should the output directory be automatically deleted (if present).
     If not enabled, the user will be prompted.
@@ -64,38 +81,31 @@ class SkeletonCreator:
         bpy.ops.wm.open_mainfile(filepath=str(self.options.file))
 
     def _get_object_names(self) -> list[bObject]:
-        objects = []
-        # we do not keep a list of references to Object instances
-        # as blender indicates against this.
         if self.options.objects:
-            for object_name in self.options.objects:
-                if object_name in bpy.data.objects:
-                    objects.append(object_name)
-                else:
-                    raise ValueError("No object named", object_name)
+            objects = [bpy.data.objects[object_name] for object_name in self.options.objects]
         else:
             if bpy.context.selected_objects:
-                for object in bpy.context.selected_objects:
-                    objects.append(object.name)
+                objects = bpy.context.selected_objects
             else:
-                for object in bpy.data.objects:
-                    objects.append(object.name)
-        return objects
+                objects = bpy.data.objects
+        
+        # We turn this list of references to a list of strings, as Blender recommends.
+        object_names = []
+        for object in objects:
+            if not isinstance(object.data, bArmature):
+                raise RuntimeError(object.name, "is not an Armature")
+            object_names.append(object.name)
+
+        return object_names
     
     def _add_body(self, name):
         body: mjElement = self.model.worldbody.add("body", name=name)
         object: bObject = bpy.data.objects[name]
-        
-        if not isinstance(object.data, bArmature):
-            raise RuntimeError(name, "is not an Armature")
-        armature = object.data
+        armature: bArmature = object.data
 
         armature.pose_position = "POSE" if self.options.use_pose_position else "REST"
-        
-        def p(array):
-            return [f"{n:.3}" for n in array]
 
-        def add_body_part(parent: mjElement, parent_head: Vector | None, bone: bBone):
+        def add_body_part(parent: mjElement, parent_head: Vector | None, parent_orientation: Quaternion | None, bone: bBone):
             logging.info("Processing bone %s...", bone.name)
 
             # we use _local positions, because other ones are too complicated to work with
@@ -108,11 +118,28 @@ class SkeletonCreator:
 
             # We put the MuJoCo body at the head. To keep local positions,
             # the tail location of the parent must be substracted.
-            if parent_head is not None:
+            if parent_head is not None and not options.no_hierarchy:
+                # BEWARE: the -= operator does not seem to work properly on bpy Vectors
                 head  = head - parent_head
                 tail = tail - parent_head
 
+            orientation = None
+            if self.options.orient_bodies:
+                v1 = Vector((0, 0, 1))
+                axis = tail - head
+                xyz = v1.cross(axis)
+                w = axis.length + v1.dot(axis)
+                orientation = Quaternion([w, *xyz])
+                orientation.normalize()
+                if parent_orientation is not None:
+                    orientation = parent_orientation.rotation_difference(orientation)
+                
+                # TODO do position work
+
             body: mjElement = parent.add("body", name=bone.name, pos=[*head])
+
+            if self.options.orient_bodies:
+                body.set_attributes(quat=[*orientation])
 
             geom = body.add("geom", name=f"{bone.name}_collision",
                             type="capsule", rgba=".5 .5 .5 .5",
@@ -120,10 +147,69 @@ class SkeletonCreator:
                             size = [bone.tail_radius])
             
             for sub_bone in bone.children:
-                add_body_part(body, head_local, sub_bone)
+                add_body_part(parent if self.options.no_hierarchy else body, head_local, orientation, sub_bone)
 
         root_bone = armature.bones[0]
-        add_body_part(body, None, root_bone)
+        add_body_part(body, None, None, root_bone)
+
+    def _add_skin(self, name: str):
+        skin_obj = self._create_skin(name)
+
+        self.model.deformable.add("skin", name=name, file=UnhashedAsset(skin.serialize(skin_obj), name, ".skn"))
+
+    def _get_mesh(self, rig: bObject):
+        for obj in bpy.data.objects:
+            if obj.type == "MESH" and rig in [m.object for m in obj.modifiers if m.type == "ARMATURE"]:
+                return obj
+        raise ValueError("No mesh found for rig", rig.name)
+
+    def _create_skin(self, name: str) -> mjSkin:
+        rigObject: bObject = bpy.data.objects[name]
+        armature: bArmature = rigObject.data
+        meshObject = self._get_mesh(rigObject)
+        mesh: bMesh = meshObject.data
+
+        meshObject.select_set(state=True)
+        bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+        meshObject.select_set(state=False)
+
+        mesh_b = bmesh.new()
+        mesh_b.from_mesh(mesh, face_normals=False, vertex_normals=False)
+
+        vertices = np.array([coordinate for v in mesh_b.verts for coordinate in v.co]).reshape(-1, 3)
+        texcoords = np.array([]).reshape(-1, 2)
+
+        # faces_raw = mesh_b.faces
+        faces_raw = bmesh.ops.triangulate(mesh_b, faces=mesh_b.faces)["faces"]
+        faces = np.array([vert.index for face in faces_raw for vert in face.verts]).reshape(-1, 3)
+
+        bones = []
+        for bone in armature.bones:
+            body: mjElement = self.model.find("body", bone.name)
+            # bindpos = np.array(body.pos)
+            # bindpos = np.array(bone.matrix_local)
+            # bindquat = np.array(bone.matrix.to_quaternion())
+            translation, rotation, scale = bone.matrix_local.decompose()
+            bindpos = np.array(translation)
+            # bindquat = np.array(rotation)
+            bindquat = np.array([1, 0, 0, 0])
+
+            vertex_group_id = meshObject.vertex_groups[bone.name].index
+            vertex_ids = []
+            vertex_weights = []
+            for v in mesh.vertices:
+                for g in v.groups:
+                    if vertex_group_id == g.group:
+                        vertex_ids.append(v.index)
+                        vertex_weights.append(g.weight)
+                        break
+            
+            vertex_ids = np.array(vertex_ids, dtype=np.int32)
+            vertex_weights = np.array(vertex_weights, dtype=np.float32)
+
+            bones.append(mjBone(lambda b=body: b, bindpos, bindquat, vertex_ids, vertex_weights))
+
+        return mjSkin(vertices, texcoords, faces, bones)
 
     def main(self):
         if self.options.verbose:
@@ -148,6 +234,7 @@ class SkeletonCreator:
 
         for object_name in self._get_object_names():
             self._add_body(object_name)
+            self._add_skin(object_name)
 
         if should_remove:
             shutil.rmtree(self.options.output)
