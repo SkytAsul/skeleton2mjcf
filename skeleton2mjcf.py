@@ -105,7 +105,7 @@ class SkeletonCreator:
 
         armature.pose_position = "POSE" if self.options.use_pose_position else "REST"
 
-        def add_body_part(parent: mjElement, parent_head: Vector | None, parent_orientation: Quaternion | None, bone: bBone):
+        def add_body_part(parent: mjElement, parent_head: Vector | None, parent_orientation: Quaternion | None, parent_axis: Vector | None, bone: bBone):
             logging.info("Processing bone %s...", bone.name)
 
             # we use _local positions, because other ones are too complicated to work with
@@ -123,34 +123,50 @@ class SkeletonCreator:
                 head  = head - parent_head
                 tail = tail - parent_head
 
-            orientation = None
+            local_orientation = global_orientation = None
+            local_head = head
+            local_tail = axis = tail - head
             if self.options.orient_bodies:
-                v1 = Vector((0, 0, 1))
-                axis = tail - head
-                xyz = v1.cross(axis)
-                w = axis.length + v1.dot(axis)
-                orientation = Quaternion([w, *xyz])
-                orientation.normalize()
-                if parent_orientation is not None:
-                    orientation = parent_orientation.rotation_difference(orientation)
+                # v1 = Vector((1, 0, 0))
+                # axis = local_tail
+                # xyz = v1.cross(axis)
+                # w = axis.length + v1.dot(axis)
+                # orientation = Quaternion([w, *xyz])
+                # orientation.normalize()
+                # if parent_orientation is not None:
+                #     orientation = parent_orientation.rotation_difference(orientation)
                 
-                # TODO do position work
+                # # TODO do position work
+                # local_tail = Vector((local_tail.length, 0, 0))
+                # print("local", local_tail)
 
-            body: mjElement = parent.add("body", name=bone.name, pos=[*head])
+                print(bone.name, parent_orientation)
+                d = parent_axis.dot(axis)
+                w = parent_axis.cross(axis)
+                local_orientation = Quaternion([d + np.sqrt(d * d + w.length_squared), *w]).normalized()
+                global_orientation = local_orientation @ parent_orientation
+
+                local_head = head
+                if head != Vector((0, 0, 0)):
+                    local_head.rotate(parent_orientation)
+                local_tail = Vector((0, axis.length, 0)) # TODO better
+
+            body: mjElement = parent.add("body", name=bone.name, pos=[*local_head])
 
             if self.options.orient_bodies:
-                body.set_attributes(quat=[*orientation])
+                # body.set_attributes(quat=[*local_orientation])
+                body.set_attributes(euler=[np.degrees(x) for x in local_orientation.to_euler()])
 
             geom = body.add("geom", name=f"{bone.name}_collision",
                             type="capsule", rgba=".5 .5 .5 .5",
-                            fromto = [0, 0, 0, *(tail - head)],
+                            fromto = [0, 0, 0, *local_tail],
                             size = [bone.tail_radius])
             
             for sub_bone in bone.children:
-                add_body_part(parent if self.options.no_hierarchy else body, head_local, orientation, sub_bone)
+                add_body_part(parent if self.options.no_hierarchy else body, head_local, global_orientation, axis, sub_bone)
 
         root_bone = armature.bones[0]
-        add_body_part(body, None, None, root_bone)
+        add_body_part(body, None, Quaternion([1, 0, 0, 0]), Vector([0, 1, 0]), root_bone)
 
     def _add_skin(self, name: str):
         skin_obj = self._create_skin(name)
@@ -185,6 +201,9 @@ class SkeletonCreator:
 
         bones = []
         for bone in armature.bones:
+            if not bone.name in meshObject.vertex_groups:
+                continue
+
             body: mjElement = self.model.find("body", bone.name)
             # bindpos = np.array(body.pos)
             # bindpos = np.array(bone.matrix_local)
