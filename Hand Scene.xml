@@ -1,5 +1,5 @@
 <mujoco model="Hand">
-  <statistic extent="1.5" meansize=".05"/>
+  <statistic extent="1.5" />
 
   <visual>
     <rgba haze="0.15 0.25 0.35 1"/>
@@ -29,6 +29,85 @@
       <freejoint/>
       <geom type="ellipsoid" size="0.1 0.11 0.09" rgba="0.5 0.7 0.5 1" condim="6" priority="1"
         friction="0.5 0.01 0.003"/>
+    </body>
+
+
+    <body name="OLDHandRig" pos="0 0 0.7">
+      <body name="OLDHandRoot" pos="0.0337 -0.201 -0.0165">
+        <geom name="OLDHandRoot_collision" class="/" type="capsule" size="0.01" rgba="0.5 0.5 0.5 0.5" fromto="0 0 0 -0.023 0.193 0.00159"/>
+        <body name="OLDDEF-hand.R" pos="-0.023 0.193 0.00159">
+          <geom name="OLDDEF-hand.R_collision" class="/" type="capsule" size="0.01" rgba="0.5 0.5 0.5 0.5" fromto="0 0 0 -0.0126 0.053 -0.00799"/>
+          <body name="OLDORG-palm.01.R" pos="-0.051 0.0422 0.00643">
+            <geom name="OLDORG-palm.01.R_collision" class="/" type="capsule" size="0.01" rgba="0.5 0.5 0.5 0.5" fromto="0 0 0 -0.0108 0.0406 -0.00213"/>
+            <body name="OLDDEF-palm.01.R" pos="0 -3.35e-08 -9.31e-10">
+              <geom name="OLDDEF-palm.01.R_collision" class="/" type="capsule" size="0.01" rgba="0.5 0.5 0.5 0.5" fromto="0 0 0 -0.0108 0.0406 -0.00213"/>
+            </body>
+            <body name="OLDDEF-f_index.01.R" pos="-0.0261 0.0978 -0.00513">
+              <geom name="OLDDEF-f_index.01.R_collision" class="/" type="capsule" size="0.01" rgba="0.5 0.5 0.5 0.5" fromto="0 0 0 -0.0206 0.0496 -0.0221"/>
+              <body name="OLDDEF-f_index.02.R" pos="-0.0206 0.0496 -0.0221">
+                <geom name="OLDDEF-f_index.02.R_collision" class="/" type="capsule" size="0.01" rgba="0.5 0.5 0.5 0.5" fromto="0 0 0 -0.0117 0.033 -0.0207"/>
+                <body name="OLDDEF-f_index.03.R" pos="-0.0117 0.033 -0.0207">
+                  <geom name="OLDDEF-f_index.03.R_collision" class="/" type="capsule" size="0.01" rgba="0.5 0.5 0.5 0.5" fromto="0 0 0 -0.00799 0.0283 -0.0281"/>
+                </body>
+              </body>
+            </body>
+            <body name="OLDDEF-thumb.01.R" pos="-0.00705 -0.0149 -0.0185">
+              <geom name="OLDDEF-thumb.01.R_collision" class="/" type="capsule" size="0.01" rgba="0.5 0.5 0.5 0.5" fromto="0 0 0 -0.0452 0.0409 -0.00814"/>
+              <body name="OLDDEF-thumb.02.R" pos="-0.0452 0.0409 -0.00814">
+                <geom name="OLDDEF-thumb.02.R_collision" class="/" type="capsule" size="0.01" rgba="0.5 0.5 0.5 0.5" fromto="0 0 0 -0.0252 0.0477 -0.0114"/>
+                <body name="OLDDEF-thumb.03.R" pos="-0.0252 0.0477 -0.0114">
+                  <geom name="OLDDEF-thumb.03.R_collision" class="/" type="capsule" size="0.01" rgba="0.5 0.5 0.5 0.5" fromto="0 0 0 -0.0211 0.05 -0.00973"/>
+                </body>
+              </body>
+            </body>
+          </body>
+          <body name="OLDORG-palm.02.R" pos="-0.0271 0.0487 0.0111">
+            <geom name="OLDORG-palm.02.R_collision" class="/" type="capsule" size="0.01" rgba="0.5 0.5 0.5 0.5" fromto="0 0 0 -0.00808 0.0506 -0.00493"/>
+            <body name="OLDDEF-palm.02.R" pos="7.45e-09 -4.1e-08 -1.16e-09">
+              <geom name="OLDDEF-palm.02.R_collision" class="/" type="capsule" size="0.01" rgba="0.5 0.5 0.5 0.5" fromto="0 0 0 -0.00808 0.0506 -0.00493"/>
+            </body>
+            <body name="OLDDEF-f_middle.01.R" pos="-0.0162 0.101 -0.00987">
+              <geom name="OLDDEF-f_middle.01.R_collision" class="/" type="capsule" size="0.01" rgba="0.5 0.5 0.5 0.5" fromto="0 0 0 -0.00891 0.0569 -0.0243"/>
+              <body name="OLDDEF-f_middle.02.R" pos="-0.00891 0.0569 -0.0243">
+                <geom name="OLDDEF-f_middle.02.R_collision" class="/" type="capsule" size="0.01" rgba="0.5 0.5 0.5 0.5" fromto="0 0 0 -0.00497 0.038 -0.0255"/>
+                <body name="OLDDEF-f_middle.03.R" pos="-0.00497 0.038 -0.0255">
+                  <geom name="OLDDEF-f_middle.03.R_collision" class="/" type="capsule" size="0.01" rgba="0.5 0.5 0.5 0.5" fromto="0 0 0 -0.00379 0.035 -0.0297"/>
+                </body>
+              </body>
+            </body>
+          </body>
+          <body name="OLDORG-palm.03.R" pos="-0.00506 0.049 0.00647">
+            <geom name="OLDORG-palm.03.R_collision" class="/" type="capsule" size="0.01" rgba="0.5 0.5 0.5 0.5" fromto="0 0 0 -0.000771 0.0519 -0.00619"/>
+            <body name="OLDDEF-palm.03.R" pos="1.4e-09 -2.98e-08 0">
+              <geom name="OLDDEF-palm.03.R_collision" class="/" type="capsule" size="0.01" rgba="0.5 0.5 0.5 0.5" fromto="0 0 0 -0.000771 0.0519 -0.00619"/>
+            </body>
+            <body name="OLDDEF-f_ring.01.R" pos="-0.00154 0.104 -0.0124">
+              <geom name="OLDDEF-f_ring.01.R_collision" class="/" type="capsule" size="0.01" rgba="0.5 0.5 0.5 0.5" fromto="0 0 0 0.00197 0.0553 -0.0225"/>
+              <body name="OLDDEF-f_ring.02.R" pos="0.00197 0.0553 -0.0225">
+                <geom name="OLDDEF-f_ring.02.R_collision" class="/" type="capsule" size="0.01" rgba="0.5 0.5 0.5 0.5" fromto="0 0 0 -0.00112 0.0303 -0.0226"/>
+                <body name="OLDDEF-f_ring.03.R" pos="-0.00112 0.0303 -0.0226">
+                  <geom name="OLDDEF-f_ring.03.R_collision" class="/" type="capsule" size="0.01" rgba="0.5 0.5 0.5 0.5" fromto="0 0 0 -0.00395 0.0302 -0.0224"/>
+                </body>
+              </body>
+            </body>
+          </body>
+          <body name="OLDORG-palm.04.R" pos="0.0162 0.0445 0.000871">
+            <geom name="OLDORG-palm.04.R_collision" class="/" type="capsule" size="0.01" rgba="0.5 0.5 0.5 0.5" fromto="0 0 0 0.00452 0.0517 -0.00969"/>
+            <body name="OLDDEF-palm.04.R" pos="-3.73e-09 -1.86e-08 -1.21e-08">
+              <geom name="OLDDEF-palm.04.R_collision" class="/" type="capsule" size="0.01" rgba="0.5 0.5 0.5 0.5" fromto="0 0 0 0.00452 0.0517 -0.00969"/>
+            </body>
+            <body name="OLDDEF-f_pinky.01.R" pos="0.00905 0.103 -0.0194">
+              <geom name="OLDDEF-f_pinky.01.R_collision" class="/" type="capsule" size="0.01" rgba="0.5 0.5 0.5 0.5" fromto="0 0 0 0.00757 0.0403 -0.0183"/>
+              <body name="OLDDEF-f_pinky.02.R" pos="0.00757 0.0403 -0.0183">
+                <geom name="OLDDEF-f_pinky.02.R_collision" class="/" type="capsule" size="0.01" rgba="0.5 0.5 0.5 0.5" fromto="0 0 0 0.00222 0.0298 -0.0154"/>
+                <body name="OLDDEF-f_pinky.03.R" pos="0.00222 0.0298 -0.0154">
+                  <geom name="OLDDEF-f_pinky.03.R_collision" class="/" type="capsule" size="0.01" rgba="0.5 0.5 0.5 0.5" fromto="0 0 0 -0.00052 0.0268 -0.0203"/>
+                </body>
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
     </body>
 
     <!-- <body pos="1 1 0" mocap="true">

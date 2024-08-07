@@ -79,6 +79,7 @@ class SkeletonCreator:
     def _load_scene(self):
         logging.info("Loading blender file %s...", self.options.file)
         bpy.ops.wm.open_mainfile(filepath=str(self.options.file))
+        bpy.ops.object.mode_set(mode="OBJECT")
 
     def _get_object_names(self) -> list[bObject]:
         if self.options.objects:
@@ -99,7 +100,7 @@ class SkeletonCreator:
         return object_names
     
     def _add_body(self, name):
-        body: mjElement = self.model.worldbody.add("body", name=name)
+        body: mjElement = self.model.worldbody.add("body", name=name, pos=[0, 0, 0.5])
         object: bObject = bpy.data.objects[name]
         armature: bArmature = object.data
 
@@ -123,33 +124,25 @@ class SkeletonCreator:
                 head  = head - parent_head
                 tail = tail - parent_head
 
-            local_orientation = global_orientation = None
-            local_head = head
-            local_tail = axis = tail - head
+            local_orientation = None
+            local_head = head.copy()
+            local_tail = tail - head
             if self.options.orient_bodies:
-                # v1 = Vector((1, 0, 0))
-                # axis = local_tail
-                # xyz = v1.cross(axis)
-                # w = axis.length + v1.dot(axis)
-                # orientation = Quaternion([w, *xyz])
-                # orientation.normalize()
-                # if parent_orientation is not None:
-                #     orientation = parent_orientation.rotation_difference(orientation)
-                
-                # # TODO do position work
-                # local_tail = Vector((local_tail.length, 0, 0))
-                # print("local", local_tail)
-
-                print(bone.name, parent_orientation)
+                axis = local_tail.normalized()
                 d = parent_axis.dot(axis)
                 w = parent_axis.cross(axis)
-                local_orientation = Quaternion([d + np.sqrt(d * d + w.length_squared), *w]).normalized()
-                global_orientation = local_orientation @ parent_orientation
+                local_orientation = Quaternion([1 + d, *w]).normalized()
+                global_orientation = parent_orientation @ local_orientation
 
-                local_head = head
                 if head != Vector((0, 0, 0)):
-                    local_head.rotate(parent_orientation)
-                local_tail = Vector((0, axis.length, 0)) # TODO better
+                    local_head.rotate(parent_orientation.conjugated())
+
+                local_tail = Vector((0, 0, local_tail.length))
+                # We could use an actual rotation (like the following) but it's useless.
+                #local_tail.rotate(global_orientation.conjugated())
+
+                print(bone.name, "parent", parent_orientation.to_euler(), "local", local_orientation.to_euler(), "global", global_orientation.to_euler())
+                print("axis", axis, "parent axis", parent_axis, "tail", local_tail)
 
             body: mjElement = parent.add("body", name=bone.name, pos=[*local_head])
 
@@ -165,8 +158,9 @@ class SkeletonCreator:
             for sub_bone in bone.children:
                 add_body_part(parent if self.options.no_hierarchy else body, head_local, global_orientation, axis, sub_bone)
 
-        root_bone = armature.bones[0]
-        add_body_part(body, None, Quaternion([1, 0, 0, 0]), Vector([0, 1, 0]), root_bone)
+        for bone in armature.bones:
+            if bone.parent is None:
+                add_body_part(body, None, Quaternion([1, 0, 0, 0]), Vector([0, 0, 1]), bone)
 
     def _add_skin(self, name: str):
         skin_obj = self._create_skin(name)
@@ -211,7 +205,9 @@ class SkeletonCreator:
             translation, rotation, scale = bone.matrix_local.decompose()
             bindpos = np.array(translation)
             # bindquat = np.array(rotation)
-            bindquat = np.array([1, 0, 0, 0])
+            bindquat = body.quat
+            if bindquat is None:
+                bindquat = np.array([1, 0, 0, 0])
 
             vertex_group_id = meshObject.vertex_groups[bone.name].index
             vertex_ids = []
